@@ -14,7 +14,6 @@ module Data.NAry.KTraversable (
 ) where
 
 import Control.Applicative (liftA2)
-import Data.Bitraversable (Bitraversable (..))
 import Data.Kind (Constraint, Type)
 import Data.NAry.Labels
 import Generics.Kind
@@ -41,9 +40,6 @@ class KTraversable (t :: k) where
 
 instance (Traversable f) => KTraversable f where
   ktraverse (T f :@ K0) = traverse f
-
-instance (Bitraversable f) => KTraversable f where
-  ktraverse (T f :@ T g :@ K0) = bitraverse f g
 
 -- Generic code
 

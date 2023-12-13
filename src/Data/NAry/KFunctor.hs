@@ -12,7 +12,6 @@ module Data.NAry.KFunctor (
   KFunctor (..),
 ) where
 
-import Data.Bifunctor (Bifunctor (..))
 import Data.Kind (Constraint, Type)
 import Data.NAry.Labels
 import Generics.Kind
@@ -38,9 +37,6 @@ class KFunctor (f :: k) where
 
 instance (Functor f) => KFunctor f where
   kfmap (f :@ K0) = fmap f
-
-instance (Bifunctor f) => KFunctor f where
-  kfmap (f :@ g :@ K0) = bimap f g
 
 type GFunctor :: forall {k}. (LoT k -> Type) -> Constraint
 class GFunctor (f :: LoT k -> Type) where

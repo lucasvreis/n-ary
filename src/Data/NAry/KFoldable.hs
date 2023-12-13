@@ -17,7 +17,6 @@ module Data.NAry.KFoldable (
   KFoldable (..),
 ) where
 
-import Data.Bifoldable (Bifoldable (..))
 import Data.Kind (Constraint, Type)
 import Data.NAry.Labels
 import Generics.Kind
@@ -62,10 +61,6 @@ class KFoldable (f :: k) where
 instance (Foldable f) => KFoldable f where
   kfoldMap (FM f :@ K0) = foldMap f
   kfoldr (RF f :@ K0) = foldr f
-
-instance (Bifoldable f) => KFoldable f where
-  kfoldMap (FM f :@ FM g :@ K0) = bifoldMap f g
-  kfoldr (RF f :@ RF g :@ K0) = bifoldr f g
 
 type ToLoArgs1 :: forall k. LoT k -> LoT (LoArgs (Type -> Type) k)
 type family ToLoArgs1 as where
