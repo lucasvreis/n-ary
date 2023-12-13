@@ -4,39 +4,44 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Data.NAry.KFunctor (
-  Mappings (..),
+  lfmap,
+  Mappings,
   KFunctor (..),
 ) where
 
 import Data.Bifunctor (Bifunctor (..))
 import Data.Kind (Constraint, Type)
+import Data.NAry.Labels
 import Generics.Kind
 
-infixr 9 :#
+lfmap ::
+  forall f ss ks a b.
+  (a ~ f :@@: Args0 (LMatches2 f ss ks)) =>
+  (b ~ f :@@: Args1 (LMatches2 f ss ks)) =>
+  (GetKList (Labels f) ss) =>
+  (KFunctor f) =>
+  LKList (->) ss ks ->
+  a ->
+  b
+lfmap m = kfmap @f (getKList @(Labels f) m)
 
-type Mappings :: forall k. LoT k -> LoT k -> Type
-data Mappings as bs where
-  M0 :: Mappings LoT0 LoT0
-  (:#) ::
-    (a -> b) ->
-    Mappings as bs ->
-    Mappings (a :&&: as) (b :&&: bs)
+type Mappings k = KList (->) k
 
 type KFunctor :: forall {k}. k -> Constraint
 class KFunctor (f :: k) where
-  kfmap :: Mappings as bs -> f :@@: as -> f :@@: bs
-  default kfmap :: (GenericK f, GFunctor (RepK f)) => Mappings as bs -> f :@@: as -> f :@@: bs
+  kfmap :: Mappings k ks -> f :@@: Args0 ks -> f :@@: Args1 ks
+  default kfmap :: (GenericK f, GFunctor (RepK f)) => Mappings k ks -> f :@@: Args0 ks -> f :@@: Args1 ks
   kfmap m = toK @k @f . gfmap m . fromK @k @f
 
 instance (Functor f) => KFunctor f where
-  kfmap (f :# M0) = fmap f
+  kfmap (f :@ K0) = fmap f
 
 instance (Bifunctor f) => KFunctor f where
-  kfmap (f :# g :# M0) = bimap f g
+  kfmap (f :@ g :@ K0) = bimap f g
 
 type GFunctor :: forall {k}. (LoT k -> Type) -> Constraint
 class GFunctor (f :: LoT k -> Type) where
-  gfmap :: Mappings as bs -> f as -> f bs
+  gfmap :: Mappings k ks -> f (Args0 ks) -> f (Args1 ks)
 
 instance GFunctor U1 where
   gfmap _ U1 = U1
@@ -64,24 +69,24 @@ instance
 instance (GFunctorArg t) => GFunctor (Field t) where
   gfmap f (Field x) = Field (gfmapf @t f x)
 
-type GFunctorArg :: forall {d}. Atom d Type -> Constraint
-class GFunctorArg (t :: Atom d Type) where
-  gfmapf :: Mappings as bs -> Interpret t as -> Interpret t bs
+type GFunctorArg :: forall {k}. Atom k Type -> Constraint
+class GFunctorArg (t :: Atom k Type) where
+  gfmapf :: Mappings k ks -> Interpret t (Args0 ks) -> Interpret t (Args1 ks)
 
 instance GFunctorArg (Kon t) where
   gfmapf _ = id
 
 instance GFunctorArg (Var VZ) where
-  gfmapf (f :# _) = f
+  gfmapf (f :@ _) = f
 
 instance (GFunctorArg (Var vr)) => GFunctorArg (Var (VS vr)) where
-  gfmapf (_ :# rest) = gfmapf @(Var vr) rest
+  gfmapf (_ :@ rest) = gfmapf @(Var vr) rest
 
 instance (KFunctor f, GFunctorArg x) => GFunctorArg (f :$: x) where
-  gfmapf m = kfmap (gfmapf @x m :# M0)
+  gfmapf m = kfmap @f (gfmapf @x m :@ K0)
 
 instance (KFunctor f, GFunctorArg x, GFunctorArg y) => GFunctorArg (f :$: x :@: y) where
-  gfmapf m = kfmap @f (gfmapf @x m :# gfmapf @y m :# M0)
+  gfmapf m = kfmap @f (gfmapf @x m :@ gfmapf @y m :@ K0)
 
 instance (KFunctor f, GFunctorArg x, GFunctorArg y, GFunctorArg z) => GFunctorArg (f :$: x :@: y :@: z) where
-  gfmapf m = kfmap @f (gfmapf @x m :# gfmapf @y m :# gfmapf @z m :# M0)
+  gfmapf m = kfmap @f (gfmapf @x m :@ gfmapf @y m :@ gfmapf @z m :@ K0)

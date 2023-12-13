@@ -63,8 +63,8 @@ library
   exposed-modules:
     Data.NAry.KFoldable
     Data.NAry.KFunctor
+    Data.NAry.KTraversable
     Data.NAry.Labels
-    Data.NAry.LFunctor
 
   -- Modules included in this library but not exported.
   -- other-modules:

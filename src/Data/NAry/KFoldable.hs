@@ -2,91 +2,100 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Data.NAry.KFoldable (
-  RFolds (..),
-  FoldMaps (..),
-  KFoldable (..),
+  lfoldr,
+  lfoldMap,
   ksequence_,
+  RFold (..),
+  RFolds,
+  FoldMap (..),
+  FoldMaps,
+  KFoldable (..),
 ) where
 
 import Data.Bifoldable (Bifoldable (..))
 import Data.Kind (Constraint, Type)
+import Data.NAry.Labels
 import Generics.Kind
-import Type.Errors
 
-infixr 9 :>
+lfoldr ::
+  forall t ss ks a c.
+  (a ~ t :@@: Args0 (LMatches1 t ss ks)) =>
+  (GetKList (Labels t) ss, KFoldable t) =>
+  LKList (RFold c) ss ks ->
+  c ->
+  a ->
+  c
+lfoldr m = kfoldr @t (getKList @(Labels t) m)
 
-type RFolds :: forall k. Type -> LoT k -> Type
-data RFolds c as where
-  F0 :: RFolds c LoT0
-  (:>) ::
-    (a -> c -> c) ->
-    RFolds c as ->
-    RFolds c (a :&&: as)
+lfoldMap ::
+  forall t ss ks a m.
+  (a ~ t :@@: Args0 (LMatches1 t ss ks)) =>
+  (GetKList (Labels t) ss, KFoldable t) =>
+  Monoid m =>
+  LKList (FoldMap m) ss ks ->
+  a ->
+  m
+lfoldMap m = kfoldMap @t (getKList @(Labels t) m)
 
-infixr 9 :<>
+newtype RFold c a = RF (a -> c -> c)
+type RFolds c k = KList (RFold c) k
 
-type FoldMaps :: forall k. Type -> LoT k -> Type
-data FoldMaps m as where
-  FM0 :: FoldMaps m LoT0
-  (:<>) ::
-    (a -> m) ->
-    FoldMaps m as ->
-    FoldMaps m (a :&&: as)
+newtype FoldMap m a = FM (a -> m)
+type FoldMaps m k = KList (FoldMap m) k
 
 type KFoldable :: forall {k}. k -> Constraint
 class KFoldable (f :: k) where
-  kfoldMap :: (Monoid m) => FoldMaps m as -> f :@@: as -> m
-  kfoldr :: RFolds c as -> c -> f :@@: as -> c
+  kfoldMap :: (Monoid m) => FoldMaps m k ks -> f :@@: Args0 ks -> m
+  kfoldr :: RFolds c k ks -> c -> f :@@: Args0 ks -> c
 
-  default kfoldMap :: (GenericK f, GFoldable (RepK f), Monoid m) => FoldMaps m as -> f :@@: as -> m
+  default kfoldMap :: (GenericK f, GFoldable (RepK f), Monoid m) => FoldMaps m k ks -> f :@@: Args0 ks -> m
   kfoldMap m = gfoldMap m . fromK @k @f
 
-  default kfoldr :: (GenericK f, GFoldable (RepK f)) => RFolds c as -> c -> f :@@: as -> c
+  default kfoldr :: (GenericK f, GFoldable (RepK f)) => RFolds c k ks -> c -> f :@@: Args0 ks -> c
   kfoldr m c0 = gfoldr m c0 . fromK @k @f
 
 instance (Foldable f) => KFoldable f where
-  kfoldMap (f :<> FM0) = foldMap f
-  kfoldr (f :> F0) = foldr f
+  kfoldMap (FM f :@ K0) = foldMap f
+  kfoldr (RF f :@ K0) = foldr f
 
 instance (Bifoldable f) => KFoldable f where
-  kfoldMap (f :<> g :<> FM0) = bifoldMap f g
-  kfoldr (f :> g :> F0) = bifoldr f g
+  kfoldMap (FM f :@ FM g :@ K0) = bifoldMap f g
+  kfoldr (RF f :@ RF g :@ K0) = bifoldr f g
+
+type ToLoArgs1 :: forall k. LoT k -> LoT (LoArgs (Type -> Type) k)
+type family ToLoArgs1 as where
+  ToLoArgs1 LoT0 = LoT0
+  ToLoArgs1 (a :&&: as) = (a :&&: LoT0) :&&: ToLoArgs1 as
 
 type KSeqr :: forall {k}. LoT k -> (Type -> Type) -> Constraint
-class KSeqr as f where
-  kseqr :: (Applicative f) => RFolds (f ()) as
+class KSeqr (as :: LoT k) f where
+  kseqr :: (Applicative f) => RFolds (f ()) k (ToLoArgs1 as)
 
 instance KSeqr LoT0 f where
-  kseqr = F0
+  kseqr = K0
 
 instance forall (a :: Type) as f b. (a ~ f b, KSeqr as f) => KSeqr (a :&&: as) f where
-  kseqr = (*>) :> kseqr @as @f
+  kseqr = RF (*>) :@ kseqr @as @f
 
-type StripF' :: forall k1 k2. k1 -> k2 -> LoT k2 -> LoT k1
-type family StripF' (f :: k) a l :: LoT k where
-  StripF' f f l = l
-  StripF' f (g x) l = StripF' f g (x :&&: l)
-  StripF' a b c = TypeError (Text "Mismatch!!! " :<>: ShowTypeQuoted a :<>: Text " " :<>: ShowTypeQuoted b :<>: Text " " :<>: ShowTypeQuoted c)
-
-type StripF f a = StripF' f a LoT0
-
-ksequence_ :: forall t f a. (a ~ t :@@: StripF t a, KFoldable t, KSeqr (StripF t a) f, Applicative f) => a -> f ()
+ksequence_ ::
+  forall t f a.
+  ( a ~ t :@@: Args0 (ToLoArgs1 (StripF t a))
+  , KFoldable t
+  , KSeqr (StripF t a) f
+  , Applicative f
+  ) =>
+  a ->
+  f ()
 ksequence_ = kfoldr @t (kseqr @(StripF t a)) (pure ())
-
-test = ksequence_ @((,) (Maybe Int)) (Nothing, Just 3)
-
--- >>> test
--- Just ()
 
 -- Generic code
 
 type GFoldable :: forall {k}. (LoT k -> Type) -> Constraint
 class GFoldable (f :: LoT k -> Type) where
-  gfoldMap :: (Monoid m) => FoldMaps m as -> f as -> m
-  gfoldr :: RFolds c as -> c -> f as -> c
+  gfoldMap :: (Monoid m) => FoldMaps m k ks -> f (Args0 ks) -> m
+  gfoldr :: RFolds c k ks -> c -> f (Args0 ks) -> c
 
 instance GFoldable U1 where
   gfoldMap _ U1 = mempty
@@ -120,31 +129,31 @@ instance (GFoldableArg t) => GFoldable (Field t) where
   gfoldMap f (Field x) = gfoldMapf @t f x
   gfoldr f c (Field x) = gfoldrf @t f c x
 
-type GFoldableArg :: forall {d}. Atom d Type -> Constraint
-class GFoldableArg (t :: Atom d Type) where
-  gfoldMapf :: (Monoid m) => FoldMaps m as -> Interpret t as -> m
-  gfoldrf :: RFolds c as -> c -> Interpret t as -> c
+type GFoldableArg :: forall {k}. Atom k Type -> Constraint
+class GFoldableArg (t :: Atom k Type) where
+  gfoldMapf :: (Monoid m) => FoldMaps m k ks -> Interpret t (Args0 ks) -> m
+  gfoldrf :: RFolds c k ks -> c -> Interpret t (Args0 ks) -> c
 
 instance GFoldableArg (Kon t) where
   gfoldMapf _ _ = mempty
   gfoldrf _ c _ = c
 
 instance GFoldableArg (Var VZ) where
-  gfoldMapf (f :<> _) = f
-  gfoldrf (f :> _) c x = x `f` c
+  gfoldMapf (FM f :@ _) = f
+  gfoldrf (RF f :@ _) c x = x `f` c
 
 instance (GFoldableArg (Var vr)) => GFoldableArg (Var (VS vr)) where
-  gfoldMapf (_ :<> rest) = gfoldMapf @(Var vr) rest
-  gfoldrf (_ :> rest) = gfoldrf @(Var vr) rest
+  gfoldMapf (_ :@ rest) = gfoldMapf @(Var vr) rest
+  gfoldrf (_ :@ rest) = gfoldrf @(Var vr) rest
 
 instance (KFoldable f, GFoldableArg x) => GFoldableArg (f :$: x) where
-  gfoldMapf m = kfoldMap (gfoldMapf @x m :<> FM0)
-  gfoldrf m = kfoldr (flip (gfoldrf @x m) :> F0)
+  gfoldMapf m = kfoldMap (FM (gfoldMapf @x m) :@ K0)
+  gfoldrf m = kfoldr (RF (flip (gfoldrf @x m)) :@ K0)
 
 instance (KFoldable f, GFoldableArg x, GFoldableArg y) => GFoldableArg (f :$: x :@: y) where
-  gfoldMapf m = kfoldMap (gfoldMapf @x m :<> gfoldMapf @y m :<> FM0)
-  gfoldrf m = kfoldr (flip (gfoldrf @x m) :> flip (gfoldrf @y m) :> F0)
+  gfoldMapf m = kfoldMap (FM (gfoldMapf @x m) :@ FM (gfoldMapf @y m) :@ K0)
+  gfoldrf m = kfoldr (RF (flip (gfoldrf @x m)) :@ RF (flip (gfoldrf @y m)) :@ K0)
 
 instance (KFoldable f, GFoldableArg x, GFoldableArg y, GFoldableArg z) => GFoldableArg (f :$: x :@: y :@: z) where
-  gfoldMapf m = kfoldMap (gfoldMapf @x m :<> gfoldMapf @y m :<> gfoldMapf @z m :<> FM0)
-  gfoldrf m = kfoldr (flip (gfoldrf @x m) :> flip (gfoldrf @y m) :> flip (gfoldrf @z m) :> F0)
+  gfoldMapf m = kfoldMap (FM (gfoldMapf @x m) :@ FM (gfoldMapf @y m) :@ FM (gfoldMapf @z m) :@ K0)
+  gfoldrf m = kfoldr (RF (flip (gfoldrf @x m)) :@ RF (flip (gfoldrf @y m)) :@ RF (flip (gfoldrf @z m)) :@ K0)
