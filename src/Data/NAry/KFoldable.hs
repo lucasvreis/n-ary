@@ -6,6 +6,8 @@
 module Data.NAry.KFoldable (
   KList (..),
   LList (..),
+  LKList (..),
+  Labeled (..),
   Labels,
   lfoldr,
   lfoldMap,

@@ -6,6 +6,8 @@
 module Data.NAry.KFunctor (
   KList (..),
   LList (..),
+  LKList (..),
+  Labeled (..),
   Labels,
   lfmap,
   Mappings,

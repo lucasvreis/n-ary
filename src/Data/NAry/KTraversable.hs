@@ -6,6 +6,8 @@
 module Data.NAry.KTraversable (
   KList (..),
   LList (..),
+  LKList (..),
+  Labeled (..),
   Labels,
   ltraverse,
   Traversal (..),

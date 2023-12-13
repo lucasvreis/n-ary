@@ -12,6 +12,7 @@ module Data.NAry.Labels (
   LList (..),
   LKList (..),
   Labels,
+  Labeled (..),
   Match,
   LMatches1,
   LMatches2,
