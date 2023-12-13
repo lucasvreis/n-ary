@@ -4,6 +4,9 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Data.NAry.KFoldable (
+  KList (..),
+  LList (..),
+  Labels,
   lfoldr,
   lfoldMap,
   ksequence_,

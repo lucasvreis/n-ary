@@ -54,6 +54,8 @@ data KList a k ks where
   K0 :: KList a Type LoT0
   (:@) :: (b ~ a :@@: StripF a b) => b -> KList a k ks -> KList a (Type -> k) (StripF a b :&&: ks)
 
+infixr 9 :.
+
 data LList l k where
   L0 :: LList l Type
   (:.) :: l -> LList l k -> LList l (Type -> k)
@@ -64,6 +66,8 @@ type instance Labels Maybe = 1 :. L0
 
 type Labeled :: forall {s}. s -> Type -> Type
 newtype Labeled (l :: s) a = On a
+
+infixr 9 :@.
 
 type LKList :: forall k s l. k -> LList s l -> LoT (LoArgs k l) -> Type
 data LKList a ls ks where

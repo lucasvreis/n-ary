@@ -4,6 +4,9 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Data.NAry.KTraversable (
+  KList (..),
+  LList (..),
+  Labels,
   ltraverse,
   Traversal (..),
   Traversals,

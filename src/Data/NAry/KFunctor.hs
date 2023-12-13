@@ -4,6 +4,9 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Data.NAry.KFunctor (
+  KList (..),
+  LList (..),
+  Labels,
   lfmap,
   Mappings,
   KFunctor (..),

@@ -74,12 +74,9 @@ library
 
   -- Other library packages from which modules are imported.
   build-depends:
-    , base                    ^>=4.17.2.0
+    , base           ^>=4.17.2.0
     , kind-apply
     , kind-generics
-    , kind-generics-deriving
-    , kind-generics-th
-    , mtl
     , type-errors
 
   -- Directories containing source files.
@@ -112,5 +109,6 @@ test-suite n-ary-labeled-test
 
   -- Test dependencies.
   build-depends:
-    , base           ^>=4.16.4.0
+    , base              ^>=4.17.2.0
+    , kind-generics-th
     , n-ary-labeled
