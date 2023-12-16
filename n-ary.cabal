@@ -12,7 +12,7 @@ cabal-version:   3.0
 --   http://haskell.org/cabal/users-guide/
 --
 -- The name of the package.
-name:            n-ary-labeled
+name:            n-ary
 
 -- The package version.
 -- See the Haskell package versioning policy (PVP) for standards
@@ -61,10 +61,13 @@ library
 
   -- Modules exported by the library.
   exposed-modules:
+    Control.Category.Bifunctor
+    Data.NAry.Aux.FKind
+    Data.NAry.Aux.KList
+    Data.NAry.Category
     Data.NAry.KFoldable
     Data.NAry.KFunctor
     Data.NAry.KTraversable
-    Data.NAry.Labels
 
   -- Modules included in this library but not exported.
   -- other-modules:
@@ -74,7 +77,7 @@ library
 
   -- Other library packages from which modules are imported.
   build-depends:
-    , base           ^>=4.17.2.0
+    , base           >=4.17.2.0
     , kind-apply
     , kind-generics
     , type-errors
@@ -109,6 +112,6 @@ test-suite n-ary-labeled-test
 
   -- Test dependencies.
   build-depends:
-    , base              ^>=4.17.2.0
+    , base              >=4.17.2.0
     , kind-generics-th
-    , n-ary-labeled
+    , n-ary

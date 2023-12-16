@@ -4,12 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Data.NAry.KTraversable (
-  KList (..),
-  LList (..),
-  LKList (..),
-  Labeled (..),
-  Labels,
-  ltraverse,
+  KList2 (..),
   Traversal (..),
   Traversals,
   KTraversable (..),
@@ -17,37 +12,26 @@ module Data.NAry.KTraversable (
 
 import Control.Applicative (liftA2)
 import Data.Kind (Constraint, Type)
-import Data.NAry.Labels
 import Generics.Kind
-
-ltraverse ::
-  forall t ss ks a b f.
-  (a ~ t :@@: Args0 (LMatches2 t ss ks)) =>
-  (b ~ t :@@: Args1 (LMatches2 t ss ks)) =>
-  (GetKList (Labels t) ss, KTraversable t) =>
-  (Applicative f) =>
-  LKList (Traversal f) ss ks ->
-  a ->
-  f b
-ltraverse m = ktraverse @t (getKList @(Labels t) m)
+import Data.NAry.Aux.KList (KList2 (..))
 
 newtype Traversal f a b = T (a -> f b)
-type Traversals f k = KList (Traversal f) k
+type Traversals f k = KList2 (Traversal f) k
 
 type KTraversable :: forall {k}. k -> Constraint
 class KTraversable (t :: k) where
-  ktraverse :: (Applicative f) => Traversals f k ks -> t :@@: Args0 ks -> f (t :@@: Args1 ks)
-  default ktraverse :: (GenericK t, GTraversable (RepK t)) => (Applicative f) => Traversals f k ks -> t :@@: Args0 ks -> f (t :@@: Args1 ks)
+  ktraverse :: (Applicative f) => Traversals f k as bs -> t :@@: as -> f (t :@@: bs)
+  default ktraverse :: (GenericK t, GTraversable (RepK t)) => (Applicative f) => Traversals f k as bs -> t :@@: as -> f (t :@@: bs)
   ktraverse f x = toK @k @t <$> gtraverse f (fromK @k @t x)
 
 instance (Traversable f) => KTraversable f where
-  ktraverse (T f :@ K0) = traverse f
+  ktraverse (T f :@ K2) = traverse f
 
 -- Generic code
 
 type GTraversable :: forall {k}. (LoT k -> Type) -> Constraint
 class GTraversable (t :: LoT k -> Type) where
-  gtraverse :: (Applicative f) => Traversals f k ks -> t (Args0 ks) -> f (t (Args1 ks))
+  gtraverse :: (Applicative f) => Traversals f k as bs -> t as -> f (t bs)
 
 instance GTraversable U1 where
   gtraverse _ U1 = pure U1
@@ -77,7 +61,7 @@ instance (GTraversableArg t) => GTraversable (Field t) where
 
 type GTraversableArg :: forall {k}. Atom k Type -> Constraint
 class GTraversableArg (t :: Atom k Type) where
-  gtraversef :: (Applicative f) => Traversals f k ks -> Interpret t (Args0 ks) -> f (Interpret t (Args1 ks))
+  gtraversef :: (Applicative f) => Traversals f k as bs -> Interpret t as -> f (Interpret t bs)
 
 instance GTraversableArg (Kon t) where
   gtraversef _ = pure
@@ -89,10 +73,10 @@ instance (GTraversableArg (Var vr)) => GTraversableArg (Var (VS vr)) where
   gtraversef (_ :@ rest) = gtraversef @(Var vr) rest
 
 instance (KTraversable f, GTraversableArg x) => GTraversableArg (f :$: x) where
-  gtraversef m = ktraverse (T (gtraversef @x m) :@ K0)
+  gtraversef m = ktraverse (T (gtraversef @x m) :@ K2)
 
 instance (KTraversable f, GTraversableArg x, GTraversableArg y) => GTraversableArg (f :$: x :@: y) where
-  gtraversef m = ktraverse (T (gtraversef @x m) :@ T (gtraversef @y m) :@ K0)
+  gtraversef m = ktraverse (T (gtraversef @x m) :@ T (gtraversef @y m) :@ K2)
 
 instance (KTraversable f, GTraversableArg x, GTraversableArg y, GTraversableArg z) => GTraversableArg (f :$: x :@: y :@: z) where
-  gtraversef m = ktraverse (T (gtraversef @x m) :@ T (gtraversef @y m) :@ T (gtraversef @z m) :@ K0)
+  gtraversef m = ktraverse (T (gtraversef @x m) :@ T (gtraversef @y m) :@ T (gtraversef @z m) :@ K2)
